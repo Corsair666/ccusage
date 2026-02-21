@@ -43,6 +43,19 @@ function formatRemainingTime(remaining: number): string {
 }
 
 /**
+ * Formats token count with abbreviation (e.g., 18.4M, 42k)
+ */
+function formatTokenCount(tokens: number): string {
+	if (tokens >= 1_000_000) {
+		return `${(tokens / 1_000_000).toFixed(1)}M`;
+	}
+	if (tokens >= 1000) {
+		return `${(tokens / 1000).toFixed(0)}k`;
+	}
+	return String(tokens);
+}
+
+/**
  * Gets semaphore file for session-specific caching and process coordination
  * Uses time-based expiry and transcript file modification detection for cache invalidation
  */
@@ -360,6 +373,59 @@ export const statuslineCommand = define({
 						Result.unwrap(0),
 					);
 
+					// Load weekly usage data for current billing cycle (resets Thursday)
+					const weeklyUsage = await Result.pipe(
+						Result.try({
+							try: async () => {
+								const now = new Date();
+								const dayOfWeek = now.getDay(); // 0=Sun, ..., 4=Thu, 6=Sat
+								const daysSinceThursday = (dayOfWeek - 4 + 7) % 7;
+								const weekStart = new Date(now);
+								weekStart.setDate(
+									now.getDate() - (daysSinceThursday === 0 ? 0 : daysSinceThursday),
+								);
+								weekStart.setHours(0, 0, 0, 0);
+
+								const sinceStr =
+									weekStart.toISOString().split('T')[0]?.replace(/-/g, '') ?? '';
+								const untilStr =
+									now.toISOString().split('T')[0]?.replace(/-/g, '') ?? '';
+
+								return loadDailyUsageData({
+									since: sinceStr,
+									until: untilStr,
+									mode: 'auto',
+									offline: mergedOptions.offline,
+								});
+							},
+							catch: (error) => error,
+						})(),
+						Result.map((dailyData) => {
+							let allTokens = 0;
+							let sonnetTokens = 0;
+
+							for (const day of dailyData) {
+								for (const breakdown of day.modelBreakdowns) {
+									const tokens =
+										breakdown.inputTokens +
+										breakdown.outputTokens +
+										breakdown.cacheCreationTokens +
+										breakdown.cacheReadTokens;
+									allTokens += tokens;
+									if (breakdown.modelName.includes('sonnet')) {
+										sonnetTokens += tokens;
+									}
+								}
+							}
+
+							return { allTokens, sonnetTokens };
+						}),
+						Result.inspectError((error) =>
+							logger.error('Failed to load weekly data:', error),
+						),
+						Result.unwrap({ allTokens: 0, sonnetTokens: 0 }),
+					);
+
 					// Load session block data to find active block
 					const { blockInfo, burnRateInfo } = await Result.pipe(
 						Result.try({
@@ -406,13 +472,7 @@ export const statuslineCommand = define({
 									},
 								});
 								// Token usage display
-								const currentTokens = getTotalTokens(activeBlock.tokenCounts);
-								const tokenDisplay =
-									currentTokens >= 1_000_000
-										? `${(currentTokens / 1_000_000).toFixed(1)}M`
-										: currentTokens >= 1000
-											? `${(currentTokens / 1000).toFixed(0)}k`
-											: String(currentTokens);
+								const tokenDisplay = formatTokenCount(getTotalTokens(activeBlock.tokenCounts));
 								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${formatRemainingTime(remaining)} ${tokenDisplay} tkn`;
 
 								// Calculate burn rate
@@ -543,7 +603,8 @@ export const statuslineCommand = define({
 						// Single cost display
 						return sessionCost != null ? formatCurrency(sessionCost) : 'N/A';
 					})();
-					const statusLine = `🤖 ${modelName} | 💰 ${sessionDisplay} session / ${formatCurrency(todayCost)} today / ${blockInfo}${burnRateInfo} | 🧠 ${contextInfo ?? 'N/A'}`;
+					const weeklyDisplay = `Week: ${formatTokenCount(weeklyUsage.allTokens)} all / ${formatTokenCount(weeklyUsage.sonnetTokens)} sonnet`;
+					const statusLine = `🤖 ${modelName} | 💰 ${sessionDisplay} session / ${formatCurrency(todayCost)} today / ${blockInfo}${burnRateInfo} | 🧠 ${contextInfo ?? 'N/A'} | 📊 ${weeklyDisplay}`;
 					return statusLine;
 				},
 				catch: (error) => error,
