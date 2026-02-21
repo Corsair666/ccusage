@@ -473,7 +473,8 @@ export const statuslineCommand = define({
 								});
 								// Token usage display
 								const tokenDisplay = formatTokenCount(getTotalTokens(activeBlock.tokenCounts));
-								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${formatRemainingTime(remaining)} ${tokenDisplay} tkn`;
+								const timePercent = Math.round((elapsed / 300) * 100);
+								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${timePercent}% ${formatRemainingTime(remaining)} ${tokenDisplay} tkn`;
 
 								// Calculate burn rate
 								const burnRate = calculateBurnRate(activeBlock);
