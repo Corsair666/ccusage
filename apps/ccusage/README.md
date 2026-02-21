@@ -109,8 +109,8 @@ npx ccusage monthly --compact  # Compact monthly report
 - 📊 **Daily Report**: View token usage and costs aggregated by date
 - 📅 **Monthly Report**: View token usage and costs aggregated by month
 - 💬 **Session Report**: View usage grouped by conversation sessions
-- ⏰ **5-Hour Blocks Report**: Track usage within Claude's billing windows with active block monitoring
-- 🚀 **Statusline Integration**: Compact usage display for Claude Code status bar hooks (Beta)
+- ⏰ **5-Hour Blocks Report**: Track usage within Claude's billing windows with active block monitoring and progress bars
+- 🚀 **Statusline Integration**: Rich status bar with progress bars, token tracking, burn rate, and weekly usage breakdown
 - 🤖 **Model Tracking**: See which Claude models you're using (Opus, Sonnet, etc.)
 - 📊 **Model Breakdown**: View per-model cost breakdown with `--breakdown` flag
 - 📅 **Date Filtering**: Filter reports by date range using `--since` and `--until`
@@ -129,6 +129,113 @@ npx ccusage monthly --compact  # Compact monthly report
 - 🌐 **Locale Support**: Customize date/time formatting with `--locale` option (e.g., en-US, ja-JP, de-DE)
 - ⚙️ **Configuration Files**: Set defaults with JSON configuration files, complete with IDE autocomplete and validation
 - 🚀 **Ultra-Small Bundle**: Unlike other CLI tools, we pay extreme attention to bundle size - incredibly small even without minification!
+
+## Statusline (Beta)
+
+Real-time usage monitoring directly in your Claude Code terminal via the status bar hook system.
+
+### Example Output
+
+```
+🤖 Opus 4.6 | 💰 $0.00 session / $12.14 today / $13.02 block [████████░░] 44% 2h 49m left 22.4M tkn | 🔥 $9.74/hr | 🧠 18% (35.0k) | 📊 Week: 22.0M all / 0 sonnet
+```
+
+### Statusline Sections
+
+| Section      | Example                | Description                                     |
+| ------------ | ---------------------- | ----------------------------------------------- |
+| 🤖 Model     | `Opus 4.6`             | Currently active Claude model                   |
+| 💰 Session   | `$0.00 session`        | Cost for current session                        |
+| 💰 Today     | `$12.14 today`         | Total cost for today                            |
+| 💰 Block     | `$13.02 block`         | Cost for current 5-hour billing block           |
+| Progress Bar | `[████████░░] 44%`     | Visual progress of 5-hour block with percentage |
+| Time Left    | `2h 49m left`          | Time remaining in current block                 |
+| Token Usage  | `22.4M tkn`            | Total tokens consumed in current block          |
+| 🔥 Burn Rate | `$9.74/hr`             | Current cost per hour rate                      |
+| 🧠 Context   | `18% (35.0k)`          | Context window usage percentage and token count |
+| 📊 Weekly    | `22.0M all / 0 sonnet` | Weekly token usage (all models and Sonnet-only) |
+
+### Weekly Usage Tracking
+
+The `📊 Week` section shows token consumption for the current billing cycle:
+
+- **All models**: Total tokens across all Claude models (Opus, Sonnet, Haiku, etc.)
+- **Sonnet only**: Tokens from Sonnet models specifically (Claude has separate weekly limits for Sonnet)
+- Billing cycle resets every **Thursday**, matching Claude's weekly billing schedule
+- Data is aggregated from local JSONL files — no external API needed
+
+### Setup
+
+Add the following to your Claude Code settings file (`~/.claude/settings.json`):
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "npx -y ccusage@latest statusline",
+    "padding": 0
+  }
+}
+```
+
+Or if running from source for development:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bun /path/to/ccusage/apps/ccusage/src/index.ts statusline",
+    "padding": 0
+  }
+}
+```
+
+### Statusline Options
+
+```bash
+ccusage statusline [options]
+```
+
+| Option                           | Default | Description                                             |
+| -------------------------------- | ------- | ------------------------------------------------------- |
+| `--offline` / `--no-offline`     | `true`  | Use cached pricing data (faster)                        |
+| `--visual-burn-rate <mode>`      | `off`   | Burn rate display: `off`, `emoji`, `text`, `emoji-text` |
+| `--cost-source <source>`         | `auto`  | Cost source: `auto`, `ccusage`, `cc`, `both`            |
+| `--cache` / `--no-cache`         | `true`  | Enable hybrid time+file caching                         |
+| `--refresh-interval <seconds>`   | `10`    | Cache refresh interval                                  |
+| `--context-low-threshold <n>`    | `50`    | Context % below which status is green                   |
+| `--context-medium-threshold <n>` | `80`    | Context % below which status is yellow                  |
+
+### Caching System
+
+The statusline uses a hybrid caching system for optimal performance:
+
+1. **Time-based expiry**: Cache expires after `--refresh-interval` seconds (default: 10s)
+2. **File modification detection**: Immediate cache invalidation when the conversation transcript is updated
+3. **Process coordination**: Prevents concurrent updates via semaphore files
+
+This ensures the status line is always responsive while minimizing I/O overhead.
+
+## 5-Hour Blocks with Progress Bars
+
+The `blocks` command now includes visual progress bars for active blocks:
+
+```bash
+# Show only the active block with progress bars
+npx ccusage blocks --active
+
+# Show blocks from the last 3 days
+npx ccusage blocks --recent
+
+# Set a token limit for usage warnings
+npx ccusage blocks --active --token-limit 500000
+npx ccusage blocks --active --token-limit max  # Use historical max as limit
+```
+
+The active block display includes:
+
+- **Time progress bar**: Visual representation of elapsed time in the 5-hour window
+- **Token limit bar**: When `--token-limit` is set, shows token consumption against the limit with color-coded warnings (green/yellow/red)
 
 ## Documentation
 
