@@ -477,8 +477,11 @@ export const statuslineCommand = define({
 									? pc.yellow
 									: pc.red;
 						const coloredPercentage = color(`${percentage}%`);
-						const tokenDisplay = inputTokens.toLocaleString();
-						return `${tokenDisplay} (${coloredPercentage})`;
+						const tokenDisplay =
+							inputTokens >= 1000
+								? `${(inputTokens / 1000).toFixed(1)}k`
+								: inputTokens.toLocaleString();
+						return `${coloredPercentage} (${tokenDisplay})`;
 					};
 
 					// Get context tokens from Claude Code hook data, or fall back to calculating from transcript
