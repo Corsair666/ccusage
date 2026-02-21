@@ -6,6 +6,7 @@ import {
 	formatNumber,
 	ResponsiveTable,
 } from '@ccusage/terminal/table';
+import { createProgressBar } from '@ccusage/terminal/utils';
 import { Result } from '@praha/byethrow';
 import { define } from 'gunshi';
 import pc from 'picocolors';
@@ -298,7 +299,17 @@ export const blocksCommand = define({
 				log(
 					`Block Started: ${pc.cyan(block.startTime.toLocaleString())} (${pc.yellow(`${Math.floor(elapsed / 60)}h ${elapsed % 60}m`)} ago)`,
 				);
-				log(`Time Remaining: ${pc.green(`${Math.floor(remaining / 60)}h ${remaining % 60}m`)}\n`);
+				log(`Time Remaining: ${pc.green(`${Math.floor(remaining / 60)}h ${remaining % 60}m`)}`);
+				log(
+					`Time Progress:  ${createProgressBar(elapsed, elapsed + remaining, 20, {
+						colors: {
+							low: pc.green(''),
+							medium: pc.yellow(''),
+							high: pc.red(''),
+							critical: pc.red(''),
+						},
+					})}\n`,
+				);
 
 				log(pc.bold('Current Usage:'));
 				log(`  Input Tokens:     ${formatNumber(block.tokenCounts.inputTokens)}`);
@@ -334,6 +345,16 @@ export const blocksCommand = define({
 							log(`  Limit:            ${formatNumber(limit)} tokens`);
 							log(
 								`  Current Usage:    ${formatNumber(currentTokens)} (${((currentTokens / limit) * 100).toFixed(1)}%)`,
+							);
+							log(
+								`  Token Usage:      ${createProgressBar(currentTokens, limit, 20, {
+									colors: {
+										low: pc.green(''),
+										medium: pc.yellow(''),
+										high: pc.red(''),
+										critical: pc.red(''),
+									},
+								})}`,
 							);
 							log(`  Remaining:        ${formatNumber(remainingTokens)} tokens`);
 							log(`  Projected Usage:  ${percentUsed.toFixed(1)}% ${status}`);

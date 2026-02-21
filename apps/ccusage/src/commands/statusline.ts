@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 import { formatCurrency } from '@ccusage/terminal/table';
+import { createProgressBar } from '@ccusage/terminal/utils';
 import { Result } from '@praha/byethrow';
 import { createLimoJson } from '@ryoppippi/limo';
 import getStdin from 'get-stdin';
@@ -393,7 +394,17 @@ export const statuslineCommand = define({
 								);
 								const blockCost = activeBlock.costUSD;
 
-								const blockInfo = `${formatCurrency(blockCost)} block (${formatRemainingTime(remaining)})`;
+								const elapsed = 300 - remaining;
+								const timeBar = createProgressBar(elapsed, 300, 10, {
+									showPercentage: false,
+									colors: {
+										low: pc.green(''),
+										medium: pc.yellow(''),
+										high: pc.red(''),
+										critical: pc.red(''),
+									},
+								});
+								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${formatRemainingTime(remaining)}`;
 
 								// Calculate burn rate
 								const burnRate = calculateBurnRate(activeBlock);
