@@ -56,6 +56,36 @@ function formatTokenCount(tokens: number): string {
 }
 
 /**
+ * Calculates the time remaining until the next weekly reset (Thursday 15:00 local time)
+ */
+function getWeeklyResetCountdown(): string {
+	const now = new Date();
+	const dayOfWeek = now.getDay(); // 0=Sun, ..., 4=Thu, 6=Sat
+
+	// Next Thursday
+	let daysUntilThursday = (4 - dayOfWeek + 7) % 7;
+	const nextThursday = new Date(now);
+	nextThursday.setDate(now.getDate() + daysUntilThursday);
+	nextThursday.setHours(15, 0, 0, 0); // 3:00 PM
+
+	// If we're past Thursday 15:00 this week, target next Thursday
+	if (nextThursday.getTime() <= now.getTime()) {
+		daysUntilThursday = 7;
+		nextThursday.setDate(nextThursday.getDate() + 7);
+	}
+
+	const diffMs = nextThursday.getTime() - now.getTime();
+	const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+	const days = Math.floor(diffHours / 24);
+	const hours = diffHours % 24;
+
+	if (days > 0) {
+		return `${days}d${hours}h`;
+	}
+	return `${hours}h`;
+}
+
+/**
  * Gets semaphore file for session-specific caching and process coordination
  * Uses time-based expiry and transcript file modification detection for cache invalidation
  */
@@ -474,7 +504,7 @@ export const statuslineCommand = define({
 								// Token usage display
 								const tokenDisplay = formatTokenCount(getTotalTokens(activeBlock.tokenCounts));
 								const timePercent = Math.round((elapsed / 300) * 100);
-								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${timePercent}% ${formatRemainingTime(remaining)} ${tokenDisplay} tkn`;
+								const blockInfo = `${formatCurrency(blockCost)} ${timeBar} ${timePercent}% ${formatRemainingTime(remaining)} ${tokenDisplay}`;
 
 								// Calculate burn rate
 								const burnRate = calculateBurnRate(activeBlock);
@@ -604,8 +634,22 @@ export const statuslineCommand = define({
 						// Single cost display
 						return sessionCost != null ? formatCurrency(sessionCost) : 'N/A';
 					})();
-					const weeklyDisplay = `Week: ${formatTokenCount(weeklyUsage.allTokens)} all / ${formatTokenCount(weeklyUsage.sonnetTokens)} sonnet`;
-					const statusLine = `🤖 ${modelName} | 💰 ${sessionDisplay} session / ${formatCurrency(todayCost)} today / ${blockInfo}${burnRateInfo} | 🧠 ${contextInfo ?? 'N/A'} | 📊 ${weeklyDisplay}`;
+					// Weekly usage with color coding based on token velocity
+					const weeklyResetIn = getWeeklyResetCountdown();
+					const formatWeeklyTokens = (tokens: number, label: string): string => {
+						const display = formatTokenCount(tokens);
+						// Color based on weekly consumption level
+						// Thresholds: <100M green, <500M yellow, >=500M red
+						const color =
+							tokens < 100_000_000
+								? pc.green
+								: tokens < 500_000_000
+									? pc.yellow
+									: pc.red;
+						return `${color(display)} ${label}`;
+					};
+					const weeklyDisplay = `${formatWeeklyTokens(weeklyUsage.allTokens, 'all')} / ${formatWeeklyTokens(weeklyUsage.sonnetTokens, 'son')} ⏳${weeklyResetIn}`;
+					const statusLine = `🤖 ${modelName} | ${sessionDisplay}/${formatCurrency(todayCost)}/${blockInfo}${burnRateInfo} | 🧠 ${contextInfo ?? 'N/A'} | 📊 ${weeklyDisplay}`;
 					return statusLine;
 				},
 				catch: (error) => error,

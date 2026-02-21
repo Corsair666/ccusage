@@ -137,32 +137,68 @@ Real-time usage monitoring directly in your Claude Code terminal via the status 
 ### Example Output
 
 ```
-🤖 Opus 4.6 | 💰 $0.00 session / $12.14 today / $13.02 block [████████░░] 44% 2h 49m left 22.4M tkn | 🔥 $9.74/hr | 🧠 18% (35.0k) | 📊 Week: 22.0M all / 0 sonnet
+🤖 Opus 4.6 | $0.00/$12.14/$13.02 [████████░░] 44% 2h 49m left 22.4M | 🧠 18% (35.0k) | 📊 22.0M all / 0 son ⏳4d14h
+```
+
+### Statusline Format
+
+```
+🤖 Model | $session/$today/$block [progress] pct% time tokens | 🧠 context | 📊 weekly ⏳reset
 ```
 
 ### Statusline Sections
 
-| Section      | Example                | Description                                     |
-| ------------ | ---------------------- | ----------------------------------------------- |
-| 🤖 Model     | `Opus 4.6`             | Currently active Claude model                   |
-| 💰 Session   | `$0.00 session`        | Cost for current session                        |
-| 💰 Today     | `$12.14 today`         | Total cost for today                            |
-| 💰 Block     | `$13.02 block`         | Cost for current 5-hour billing block           |
-| Progress Bar | `[████████░░] 44%`     | Visual progress of 5-hour block with percentage |
-| Time Left    | `2h 49m left`          | Time remaining in current block                 |
-| Token Usage  | `22.4M tkn`            | Total tokens consumed in current block          |
-| 🔥 Burn Rate | `$9.74/hr`             | Current cost per hour rate                      |
-| 🧠 Context   | `18% (35.0k)`          | Context window usage percentage and token count |
-| 📊 Weekly    | `22.0M all / 0 sonnet` | Weekly token usage (all models and Sonnet-only) |
+| Section | Example | Description |
+| --- | --- | --- |
+| 🤖 Model | `Opus 4.6` | Currently active Claude model |
+| Costs | `$0.00/$12.14/$13.02` | Session / Today / 5hr Block costs (compact) |
+| Progress Bar | `[████████░░] 44%` | 5-hour block elapsed time with percentage |
+| Time Left | `2h 49m left` | Time remaining in current 5-hour block |
+| Block Tokens | `22.4M` | Total tokens consumed in current block |
+| 🔥 Burn Rate | `$9.74/hr` | Cost per hour rate (optional, off by default) |
+| 🧠 Context | `18% (35.0k)` | Context window usage — color-coded (green/yellow/red) |
+| 📊 Weekly | `22.0M all / 0 son` | Weekly token usage — color-coded by consumption level |
+| ⏳ Reset | `4d14h` | Countdown until weekly limits reset (Thursday 3PM) |
 
-### Weekly Usage Tracking
+### Understanding the Limits
 
-The `📊 Week` section shows token consumption for the current billing cycle:
+Claude Code has **three layers of usage limits** that affect your productivity:
 
-- **All models**: Total tokens across all Claude models (Opus, Sonnet, Haiku, etc.)
-- **Sonnet only**: Tokens from Sonnet models specifically (Claude has separate weekly limits for Sonnet)
-- Billing cycle resets every **Thursday**, matching Claude's weekly billing schedule
-- Data is aggregated from local JSONL files — no external API needed
+| Limit | What It Means | Statusline Indicator | When It Resets |
+| --- | --- | --- | --- |
+| **5-Hour Block** | Token/prompt cap per 5-hour window. Hit it → blocked until reset | `[████████░░] 44% 2h 49m left` | Every 5 hours |
+| **Weekly - All Models** | Total usage across Opus + Sonnet + Haiku for the week | `22.0M all` (green/yellow/red) | Thursday 3:00 PM |
+| **Weekly - Sonnet Only** | Separate cap for Sonnet specifically | `0 son` (green/yellow/red) | Thursday 3:00 PM |
+| **Context Window** | Max tokens in a single conversation (200K or 1M for Opus 4.6) | `🧠 18% (35.0k)` | Start a new conversation |
+
+### Weekly Usage Color Coding
+
+The weekly token display uses color to warn you as consumption increases:
+
+| Color | Threshold | Meaning |
+| --- | --- | --- |
+| 🟢 Green | < 100M tokens | Safe — plenty of capacity remaining |
+| 🟡 Yellow | 100M – 500M tokens | Moderate — monitor your usage |
+| 🔴 Red | > 500M tokens | High — approaching potential limits |
+
+### Weekly Reset Countdown
+
+The `⏳` indicator shows time remaining until your weekly limits refresh:
+
+- Resets every **Thursday at 3:00 PM** local time (matching Claude's billing cycle)
+- Example: `⏳4d14h` means 4 days and 14 hours until reset
+- When close to reset: `⏳3h` — limits about to refresh
+
+### Data Source
+
+All data comes from **local JSONL files** — no external API or authentication needed:
+
+```
+~/.claude/projects/{project}/{sessionId}.jsonl
+~/.config/claude/projects/{project}/{sessionId}.jsonl
+```
+
+Claude Code writes token usage, model info, and timestamps to these files after every interaction. ccusage reads and aggregates them in real-time.
 
 ### Setup
 
