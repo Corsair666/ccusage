@@ -15,6 +15,7 @@ import { loadConfig, mergeConfigWithArgs } from '../_config-loader-tokens.ts';
 import { DEFAULT_CONTEXT_USAGE_THRESHOLDS, DEFAULT_REFRESH_INTERVAL_SECONDS } from '../_consts.ts';
 import { calculateBurnRate } from '../_session-blocks.ts';
 import { sharedArgs } from '../_shared-args.ts';
+import { getTotalTokens } from '../_token-utils.ts';
 import { statuslineHookJsonSchema } from '../_types.ts';
 import { getFileModifiedTime, unreachable } from '../_utils.ts';
 import { calculateTotals } from '../calculate-cost.ts';
@@ -404,7 +405,15 @@ export const statuslineCommand = define({
 										critical: pc.red(''),
 									},
 								});
-								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${formatRemainingTime(remaining)}`;
+								// Token usage display
+								const currentTokens = getTotalTokens(activeBlock.tokenCounts);
+								const tokenDisplay =
+									currentTokens >= 1_000_000
+										? `${(currentTokens / 1_000_000).toFixed(1)}M`
+										: currentTokens >= 1000
+											? `${(currentTokens / 1000).toFixed(0)}k`
+											: String(currentTokens);
+								const blockInfo = `${formatCurrency(blockCost)} block ${timeBar} ${formatRemainingTime(remaining)} ${tokenDisplay} tkn`;
 
 								// Calculate burn rate
 								const burnRate = calculateBurnRate(activeBlock);
